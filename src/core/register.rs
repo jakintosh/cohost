@@ -29,7 +29,7 @@ impl Push for Register64 {
 }
 
 impl Pop for Register64 {
-    fn top(&self, len: usize) -> &[u8] {
+    fn pop(&self, len: usize) -> &[u8] {
         &self.buffer[0..len]
     }
 }

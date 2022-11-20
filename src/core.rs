@@ -10,7 +10,7 @@ trait Push {
     fn push(&mut self, bytes: &[u8]);
 }
 trait Pop {
-    fn top(&self, len: usize) -> &[u8];
+    fn pop(&self, len: usize) -> &[u8];
 }
 
 enum Instruction {
@@ -178,20 +178,20 @@ impl CPU {
         match instruction.into() {
             // stack movement
             Instruction::CopyDataToData => self.data_st.duplicate(len),
-            Instruction::CopyDataToSwap => self.swap_st.push(self.data_st.top(len)),
-            Instruction::CopyDataToReturn => self.return_st.push(self.data_st.top(len)),
-            Instruction::CopyDataToHold => self.hold_reg.push(self.data_st.top(len)),
-            Instruction::CopySwapToData => self.data_st.push(self.swap_st.top(len)),
+            Instruction::CopyDataToSwap => self.swap_st.push(self.data_st.pop(len)),
+            Instruction::CopyDataToReturn => self.return_st.push(self.data_st.pop(len)),
+            Instruction::CopyDataToHold => self.hold_reg.push(self.data_st.pop(len)),
+            Instruction::CopySwapToData => self.data_st.push(self.swap_st.pop(len)),
             Instruction::CopySwapToSwap => self.swap_st.duplicate(len),
-            Instruction::CopySwapToReturn => self.return_st.push(self.swap_st.top(len)),
-            Instruction::CopySwapToHold => self.hold_reg.push(self.swap_st.top(len)),
-            Instruction::CopyReturnToData => self.data_st.push(self.return_st.top(len)),
-            Instruction::CopyReturnToSwap => self.swap_st.push(self.return_st.top(len)),
+            Instruction::CopySwapToReturn => self.return_st.push(self.swap_st.pop(len)),
+            Instruction::CopySwapToHold => self.hold_reg.push(self.swap_st.pop(len)),
+            Instruction::CopyReturnToData => self.data_st.push(self.return_st.pop(len)),
+            Instruction::CopyReturnToSwap => self.swap_st.push(self.return_st.pop(len)),
             Instruction::CopyReturnToReturn => self.return_st.duplicate(len),
-            Instruction::CopyReturnToHold => self.hold_reg.push(self.return_st.top(len)),
-            Instruction::CopyHoldToData => self.data_st.push(self.hold_reg.top(len)),
-            Instruction::CopyHoldToSwap => self.swap_st.push(self.hold_reg.top(len)),
-            Instruction::CopyHoldToReturn => self.return_st.push(self.hold_reg.top(len)),
+            Instruction::CopyReturnToHold => self.hold_reg.push(self.return_st.pop(len)),
+            Instruction::CopyHoldToData => self.data_st.push(self.hold_reg.pop(len)),
+            Instruction::CopyHoldToSwap => self.swap_st.push(self.hold_reg.pop(len)),
+            Instruction::CopyHoldToReturn => self.return_st.push(self.hold_reg.pop(len)),
             Instruction::Literal => {
                 let lit_range = self.get_lit_range(len);
                 self.data_st.push(&self.memory[lit_range]);
@@ -226,7 +226,7 @@ impl CPU {
                 return; // avoid default PC increment
             }
             Instruction::Return => {
-                self.program_counter = CPU::le_slice_to_u32(self.return_st.top(len));
+                self.program_counter = CPU::le_slice_to_u32(self.return_st.pop(len));
                 self.return_st.drop(len);
                 return; // avoid default PC increment
             }
@@ -236,7 +236,7 @@ impl CPU {
                 self.memory_address = self.pop_operand32(len);
             }
             Instruction::Store => {
-                let data = self.data_st.top(len);
+                let data = self.data_st.pop(len);
                 let range = self.memory_address as usize..self.memory_address as usize + len;
                 self.memory[range].copy_from_slice(data);
             }
@@ -380,7 +380,7 @@ impl CPU {
     }
 
     fn pop_operand32(&mut self, len: usize) -> u32 {
-        let operand = CPU::le_slice_to_u32(self.data_st.top(len));
+        let operand = CPU::le_slice_to_u32(self.data_st.pop(len));
         self.data_st.drop(len);
         operand
     }
@@ -389,7 +389,7 @@ impl CPU {
     }
 
     fn pop_operand64(&mut self, len: usize) -> u64 {
-        let operand = CPU::le_slice_to_u64(self.data_st.top(len));
+        let operand = CPU::le_slice_to_u64(self.data_st.pop(len));
         self.data_st.drop(len);
         operand
     }
@@ -398,13 +398,16 @@ impl CPU {
     }
 
     fn push_result_bool(&mut self, result: bool) {
-        self.data_st.push_byte(match result {
+        self.push_result8(match result {
             true => 0xff,
             false => STACK_FALSE,
         });
     }
     fn push_result8(&mut self, result: u8) {
         self.data_st.push_byte(result);
+    }
+    fn push_result32(&mut self, len: usize, result: u32) {
+        self.data_st.push(&result.to_le_bytes()[0..len]);
     }
     fn push_result64(&mut self, len: usize, result: u64) {
         self.data_st.push(&result.to_le_bytes()[0..len]);

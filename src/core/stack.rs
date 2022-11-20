@@ -69,7 +69,7 @@ impl Push for Stack {
 }
 
 impl Pop for Stack {
-    fn top(&self, len: usize) -> &[u8] {
+    fn pop(&self, len: usize) -> &[u8] {
         self.get_slice(self.top_range(len))
     }
 }
