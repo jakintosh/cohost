@@ -38,6 +38,7 @@ enum Instruction {
     Load,
     DMASet,
     DMACheck,
+    DMARead,
     DropData,
     DropSwap,
     DropReturn,
@@ -102,9 +103,10 @@ impl From<u8> for Instruction {
             0x18 => Self::Load,
             0x19 => Self::DMASet,
             0x1a => Self::DMACheck,
-            0x1b => Self::DropData,
-            0x1c => Self::DropSwap,
-            0x1d => Self::DropReturn,
+            0x1b => Self::DMARead,
+            0x1c => Self::DropData,
+            0x1d => Self::DropSwap,
+            0x1e => Self::DropReturn,
 
             // logic and arithmetic
             0x20 => Self::Add,
@@ -258,6 +260,12 @@ impl CPU {
                 let flag = self.pop_operand8();
                 let flag_set = (self.dma_controller.status_reg & flag) != 0;
                 self.push_result_bool(flag_set);
+            }
+            Instruction::DMARead => {
+                let length = self.dma_controller.length.to_le_bytes();
+                let address = self.dma_controller.address.to_le_bytes();
+                self.data_st.push(&length);
+                self.data_st.push(&address);
             }
 
             // dropping stacks
