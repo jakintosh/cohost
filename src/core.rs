@@ -330,11 +330,6 @@ impl CPU {
 
         self.program_counter += 1;
     }
-    pub fn run(&mut self) {
-        loop {
-            self.execute()
-        }
-    }
 
     fn parse_bytes(instruction: u8) -> usize {
         let masked_size = instruction & 0b11000000;
