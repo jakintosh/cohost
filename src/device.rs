@@ -1,4 +1,4 @@
-use std::io::{BufReader, Read};
+use std::io::Read;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Devices {
@@ -34,19 +34,13 @@ pub trait Device {
 }
 
 // console device
-struct Cursor {
-    pos: usize,
-    len: usize,
-}
 pub(crate) struct Console {
-    std_in: std::io::Stdin,
-    read_cursor: Option<Cursor>,
+    read_cursor: Option<usize>,
     read_buffer: Vec<u8>,
 }
 impl Console {
     pub fn new() -> Console {
         Console {
-            std_in: std::io::stdin(),
             read_cursor: None,
             read_buffer: Vec::new(),
         }
@@ -54,47 +48,37 @@ impl Console {
 }
 impl Device for Console {
     fn poll(&mut self) -> Option<[u8; 64]> {
-        fn read_buffer(cursor: &Cursor, in_buffer: &Vec<u8>) -> (Option<Cursor>, [u8; 64]) {
+        fn read_buffer(cursor: usize, in_buffer: &Vec<u8>) -> (Option<usize>, [u8; 64]) {
             // advance cursor
-            let start = cursor.pos;
-            let end = usize::min(cursor.pos + 64, cursor.len);
-            let copy_size = end - start;
-            let cursor = match end == cursor.len {
-                false => Some(Cursor {
-                    pos: end,
-                    len: cursor.len,
-                }),
+            let end = usize::min(cursor + 64, in_buffer.len());
+            let copy_size = end - cursor;
+            let next_cursor = match end == in_buffer.len() {
                 true => None,
+                false => Some(end),
             };
 
             // copy from stored buffer
             let mut out_buffer = [0; 64];
-            out_buffer[0..copy_size].copy_from_slice(&in_buffer[(start..end)]);
+            out_buffer[0..copy_size].copy_from_slice(&in_buffer[(cursor..end)]);
 
-            (cursor, out_buffer)
+            (next_cursor, out_buffer)
         }
 
-        match &self.read_cursor {
-            Some(cursor) => {
-                let (cursor, x) = read_buffer(cursor, &self.read_buffer);
-                self.read_cursor = cursor;
-                Some(x)
-            }
+        // if we have cursor, use it, otherwise poll stdin
+        let cursor = match self.read_cursor {
+            Some(c) => c,
             None => {
-                let mut reader = BufReader::new(self.std_in.lock());
-                match reader.read_to_end(&mut self.read_buffer) {
-                    Ok(len) => {
-                        let (cursor, x) = read_buffer(&Cursor { pos: 0, len }, &self.read_buffer);
-                        self.read_cursor = cursor;
-                        Some(x)
-                    }
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        None
-                    }
+                self.read_buffer = std::io::stdin().bytes().map(|b| b.unwrap()).collect();
+                match self.read_buffer.len() {
+                    0 => return None,
+                    _ => 0,
                 }
             }
-        }
+        };
+
+        let (cursor, poll_buffer) = read_buffer(cursor, &self.read_buffer);
+        self.read_cursor = cursor;
+        Some(poll_buffer)
     }
     fn recv(&mut self, buffer: &[u8; 64]) {
         print!("{}", String::from_utf8_lossy(buffer))

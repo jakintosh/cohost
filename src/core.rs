@@ -1,8 +1,13 @@
+mod instruction;
 mod register;
 mod stack;
 
+pub use instruction::Ins;
+
 use register::Register64;
 use stack::Stack;
+
+// use self::instruction::LenF;
 
 const STACK_FALSE: u8 = 0x00;
 const DMA_COUNT: usize = 4;
@@ -13,154 +18,6 @@ trait Push {
 }
 trait Pop {
     fn pop(&self, len: usize) -> &[u8];
-}
-
-enum Instruction {
-    CopyDataToData,
-    CopyDataToSwap,
-    CopyDataToReturn,
-    CopyDataToHold,
-    CopySwapToData,
-    CopySwapToSwap,
-    CopySwapToReturn,
-    CopySwapToHold,
-    CopyReturnToData,
-    CopyReturnToSwap,
-    CopyReturnToReturn,
-    CopyReturnToHold,
-    CopyHoldToData,
-    CopyHoldToSwap,
-    CopyHoldToReturn,
-    Literal,
-
-    Jump { conditional: bool, relative: bool },
-    Call,
-    Return,
-
-    Address,
-    Store,
-    Load,
-
-    DMARead,
-    DMAWrite,
-    DMAPoll,
-
-    DeviceRead,
-    DeviceWrite,
-    DevicePoll,
-
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-
-    Greater,
-    Less,
-    Equal,
-    NotEqual,
-
-    And,
-    Or,
-    Xor,
-    Not,
-    ShiftL,
-    ShiftR,
-
-    DropData,
-    DropSwap,
-    DropReturn,
-}
-impl From<u8> for Instruction {
-    fn from(byte: u8) -> Self {
-        let byte = 0b00111111 & byte;
-        match byte {
-            // stack movement
-            0x00 => Self::CopyDataToData,
-            0x01 => Self::CopyDataToSwap,
-            0x02 => Self::CopyDataToReturn,
-            0x03 => Self::CopyDataToHold,
-            0x04 => Self::CopySwapToData,
-            0x05 => Self::CopySwapToSwap,
-            0x06 => Self::CopySwapToReturn,
-            0x07 => Self::CopySwapToHold,
-            0x08 => Self::CopyReturnToData,
-            0x09 => Self::CopyReturnToSwap,
-            0x0a => Self::CopyReturnToReturn,
-            0x0b => Self::CopyReturnToHold,
-            0x0c => Self::CopyHoldToData,
-            0x0d => Self::CopyHoldToSwap,
-            0x0e => Self::CopyHoldToReturn,
-            0x0f => Self::Literal,
-
-            // branching
-            0x10 => Self::Jump {
-                conditional: false,
-                relative: false,
-            },
-            0x11 => Self::Jump {
-                conditional: true,
-                relative: false,
-            },
-            0x12 => Self::Jump {
-                conditional: false,
-                relative: true,
-            },
-            0x13 => Self::Jump {
-                conditional: true,
-                relative: true,
-            },
-            0x14 => Self::Call,
-            0x15 => Self::Return,
-
-            // memory
-            0x16 => Self::Address,
-            0x17 => Self::Store,
-            0x18 => Self::Load,
-
-            // DMA
-            0x19 => Self::DMARead,
-            0x1a => Self::DMAWrite,
-            0x1b => Self::DMAPoll,
-
-            // Devices
-            0x1c => Self::DeviceRead,
-            0x1d => Self::DeviceWrite,
-            0x1e => Self::DevicePoll,
-
-            // logic and arithmetic
-            0x20 => Self::Add,
-            0x21 => Self::Subtract,
-            0x22 => Self::Multiply,
-            0x23 => Self::Divide,
-            0x24 => Self::Greater,
-            0x25 => Self::Less,
-            0x26 => Self::Equal,
-            0x27 => Self::NotEqual,
-            // 0x28 => Self::AddF,
-            // 0x29 => Self::SubtractF,
-            // 0x2a => Self::MultiplyF,
-            // 0x2b => Self::DivideF,
-            // 0x2c => Self::GreaterF,
-            // 0x2d => Self::LessF,
-            // 0x2e => Self::EqualF,
-            // 0x2f => Self::NotEqualF,
-
-            // bitwise
-            0x30 => Self::And,
-            0x31 => Self::Or,
-            0x32 => Self::Xor,
-            0x33 => Self::Not,
-            0x34 => Self::ShiftL,
-            0x35 => Self::ShiftR,
-
-            // dropping
-            0x36 => Self::DropData,
-            0x37 => Self::DropSwap,
-            0x38 => Self::DropReturn,
-
-            _ => panic!("invalid instruction"),
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -208,8 +65,8 @@ impl DMA {
 }
 
 pub(crate) struct CPU {
-    pub program_counter: u32,
-    pub memory_address: u32,
+    pub program_counter: u16,
+    pub memory_address: u64,
 
     pub hold_reg: Register64,
     pub data_st: Stack,
@@ -217,9 +74,10 @@ pub(crate) struct CPU {
     pub return_st: Stack,
 
     pub memory: [u8; 65_536],
-    pub dma_controllers: [DMA; DMA_COUNT],
+
     pub slot_mask: u16,
     pub devices: [DeviceSlot; DEVICE_COUNT],
+    pub dma_controllers: [DMA; DMA_COUNT],
 }
 impl CPU {
     pub fn new() -> CPU {
@@ -261,55 +119,50 @@ impl CPU {
 
     pub fn interrupt(&mut self, address: u16) {
         self.return_st.push(&self.program_counter.to_le_bytes());
-        self.program_counter = CPU::le_slice_to_u32(&address.to_le_bytes());
+        self.program_counter = le_slice_to_u16(&address.to_le_bytes());
     }
 
     pub fn execute(&mut self) {
-        let instruction: u8 = self.memory[self.program_counter as usize];
-        let len = {
-            let masked_size = instruction & 0b11000000;
-            let num_shifts = (masked_size) >> 6;
-            let num_bytes = 0b00000001 << num_shifts;
-            num_bytes
-        };
-        match instruction.into() {
+        let byte = self.memory[self.program_counter as usize];
+        let instruction = Ins::from(byte);
+        match instruction {
+            Ins::NoOperation => {}
+
             // stack movement
-            Instruction::CopyDataToData => self.data_st.duplicate(len),
-            Instruction::CopyDataToSwap => self.swap_st.push(self.data_st.pop(len)),
-            Instruction::CopyDataToReturn => self.return_st.push(self.data_st.pop(len)),
-            Instruction::CopyDataToHold => self.hold_reg.push(self.data_st.pop(len)),
-            Instruction::CopySwapToData => self.data_st.push(self.swap_st.pop(len)),
-            Instruction::CopySwapToSwap => self.swap_st.duplicate(len),
-            Instruction::CopySwapToReturn => self.return_st.push(self.swap_st.pop(len)),
-            Instruction::CopySwapToHold => self.hold_reg.push(self.swap_st.pop(len)),
-            Instruction::CopyReturnToData => self.data_st.push(self.return_st.pop(len)),
-            Instruction::CopyReturnToSwap => self.swap_st.push(self.return_st.pop(len)),
-            Instruction::CopyReturnToReturn => self.return_st.duplicate(len),
-            Instruction::CopyReturnToHold => self.hold_reg.push(self.return_st.pop(len)),
-            Instruction::CopyHoldToData => self.data_st.push(self.hold_reg.pop(len)),
-            Instruction::CopyHoldToSwap => self.swap_st.push(self.hold_reg.pop(len)),
-            Instruction::CopyHoldToReturn => self.return_st.push(self.hold_reg.pop(len)),
-            Instruction::Literal => {
-                let lit_range = self.get_lit_range(len);
-                self.data_st.push(&self.memory[lit_range]);
-                self.program_counter += 1 + len as u32;
-                return; // avoid default PC increment
-            }
+            Ins::DuplicateData { len } => self.data_st.duplicate(len as usize),
+            Ins::CopyDataToSwap { len } => self.swap_st.push(self.data_st.pop(len as usize)),
+            Ins::CopyDataToReturn { len } => self.return_st.push(self.data_st.pop(len as usize)),
+            Ins::CopyDataToHold { len } => self.hold_reg.push(self.data_st.pop(len as usize)),
+            Ins::CopySwapToData { len } => self.data_st.push(self.swap_st.pop(len as usize)),
+            Ins::DuplicateSwap { len } => self.swap_st.duplicate(len as usize),
+            Ins::CopySwapToReturn { len } => self.return_st.push(self.swap_st.pop(len as usize)),
+            Ins::CopySwapToHold { len } => self.hold_reg.push(self.swap_st.pop(len as usize)),
+            Ins::CopyReturnToData { len } => self.data_st.push(self.return_st.pop(len as usize)),
+            Ins::CopyReturnToSwap { len } => self.swap_st.push(self.return_st.pop(len as usize)),
+            Ins::DuplicateReturn { len } => self.return_st.duplicate(len as usize),
+            Ins::CopyReturnToHold { len } => self.hold_reg.push(self.return_st.pop(len as usize)),
+            Ins::CopyHoldToData { len } => self.data_st.push(self.hold_reg.pop(len as usize)),
+            Ins::CopyHoldToSwap { len } => self.swap_st.push(self.hold_reg.pop(len as usize)),
+            Ins::CopyHoldToReturn { len } => self.return_st.push(self.hold_reg.pop(len as usize)),
+            Ins::DropData => self.data_st.drop(1),
+            Ins::DropSwap => self.swap_st.drop(1),
+            Ins::DropReturn => self.return_st.drop(1),
 
             // branching
-            Instruction::Jump {
-                conditional,
-                relative,
+            Ins::Jump {
+                len,
+                con: conditional,
+                rel: relative,
             } => {
                 if conditional {
-                    let condition = self.data_st.top_byte();
+                    let condition = le_slice_to_u8(self.data_st.pop(1));
                     self.data_st.drop(1);
                     if condition == STACK_FALSE {
                         return; // don't execute the jump
                     };
                 }
 
-                let value = self.pop_operand32(len);
+                let value = self.pop_operand16(len as usize);
                 self.program_counter = match relative {
                     true => self.program_counter + value,
                     false => value,
@@ -317,34 +170,47 @@ impl CPU {
 
                 return; // avoid default PC increment
             }
-            Instruction::Call => {
+            Ins::Call { len } => {
                 self.return_st.push(&self.program_counter.to_le_bytes());
-                self.program_counter = self.pop_operand32(len);
+                self.program_counter = self.pop_operand16(len as usize);
                 return; // avoid default PC increment
             }
-            Instruction::Return => {
-                self.program_counter = CPU::le_slice_to_u32(self.return_st.pop(len));
-                self.return_st.drop(len);
+            Ins::Return { len } => {
+                self.program_counter = le_slice_to_u16(self.return_st.pop(len as usize));
+                self.return_st.drop(len as usize);
                 return; // avoid default PC increment
             }
 
             // accessing memory
-            Instruction::Address => {
-                self.memory_address = self.pop_operand32(len);
+            Ins::Literal { len } => {
+                let lit_range = self.get_lit_range(len as usize);
+                self.data_st.push(&self.memory[lit_range]);
+                self.program_counter += len as u16; // skip consumed literal
             }
-            Instruction::Store => {
-                let data = self.data_st.pop(len);
-                let range = self.memory_address as usize..self.memory_address as usize + len;
-                self.memory[range].copy_from_slice(data);
+            Ins::Address { len } => {
+                self.memory_address = self.pop_operand64(len as usize);
+                if self.memory_address as usize > self.memory.len() {
+                    panic!("Memory Overflow")
+                }
             }
-            Instruction::Load => {
-                let range = self.memory_address as usize..self.memory_address as usize + len;
+            Ins::Store { len } => {
+                let start = self.memory_address as usize;
+                let end = self.memory_address as usize + len as usize;
+                if end > self.memory.len() {
+                    panic!("Memory Overflow")
+                }
+                let data = self.data_st.pop(len as usize);
+                self.memory[start..end].copy_from_slice(data);
+            }
+            Ins::Load { len } => {
+                let range =
+                    self.memory_address as usize..self.memory_address as usize + len as usize;
                 let data = &self.memory[range];
                 self.data_st.push(data);
             }
 
             // working with DMA
-            Instruction::DMARead => {
+            Ins::DMARead => {
                 let index = self.pop_operand8();
                 let dma = &self.dma_controllers[index as usize];
                 let length = dma.buffer_len.to_le_bytes();
@@ -352,15 +218,15 @@ impl CPU {
                 self.data_st.push(&length);
                 self.data_st.push(&address);
             }
-            Instruction::DMAWrite => {
+            Ins::DMAWrite { len } => {
                 let (index, flag) = self.pop_operands8();
-                let (address, length) = self.pop_operands32(len);
+                let (address, length) = self.pop_operands32(len as usize);
                 let dma = &mut self.dma_controllers[index as usize];
                 dma.status_reg |= flag;
                 dma.address = address;
                 dma.buffer_len = length;
             }
-            Instruction::DMAPoll => {
+            Ins::DMAPoll => {
                 let (index, flag) = self.pop_operands8();
                 let dma = &self.dma_controllers[index as usize];
                 let flag_set = (dma.status_reg & flag) != 0;
@@ -368,138 +234,188 @@ impl CPU {
             }
 
             // working with devices
-            Instruction::DeviceRead => {
+            Ins::DeviceRead { len } => {
                 // data ( index8, offset8 -- value )
                 let (index, offset) = self.pop_operands8();
                 let slot = &self.devices[index as usize];
-                let value = &slot.in_buffer[offset as usize..(offset) as usize + len];
+                let value = &slot.in_buffer[offset as usize..(offset) as usize + len as usize];
                 self.data_st.push(&value);
             }
-            Instruction::DeviceWrite => {
+            Ins::DeviceWrite { len } => {
                 // data ( index8, flag8, offset8, valueLEN -- )
                 let (index, flag) = self.pop_operands8();
                 let offset = self.pop_operand8() as usize;
-                let value = self.data_st.pop(len);
-                let range = offset..offset + len;
+                let value = self.data_st.pop(len as usize);
+                let range = offset..offset + len as usize;
                 let slot = &mut self.devices[index as usize];
                 slot.status_reg |= flag;
                 slot.out_buffer[range].copy_from_slice(value);
             }
-            Instruction::DevicePoll => {
+            Ins::DevicePoll { len } => {
                 // data ( index8, addressLEN -- ) | memory { [address] => device.identifier }
                 let index = self.pop_operand8();
-                let address = self.pop_operand32(len);
+                let address = self.pop_operand32(len as usize);
                 let slot = &self.devices[index as usize];
                 let range = address as usize..address as usize + 32;
                 self.memory[range].copy_from_slice(&slot.identifier);
             }
 
             // arithmetic
-            Instruction::Add => {
+            Ins::Add { len } => {
                 // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs + rhs);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs + rhs)
             }
-            Instruction::Subtract => {
+            Ins::Subtract { len } => {
                 // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs - rhs);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs - rhs);
             }
-            Instruction::Multiply => {
+            Ins::Multiply { len } => {
                 // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs * rhs);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs * rhs);
             }
-            Instruction::Divide => {
+            Ins::Divide { len } => {
                 // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs / rhs);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs / rhs);
             }
 
             // comparisons
-            Instruction::Greater => {
+            Ins::Greater { len } => {
                 // data ( lhsLEN, rhsLEN -- result8)
-                let (lhs, rhs) = self.pop_operands64(len);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
                 self.push_result_bool(lhs > rhs);
             }
-            Instruction::Less => {
+            Ins::Less { len } => {
                 // data ( lhsLEN, rhsLEN -- result8)
-                let (lhs, rhs) = self.pop_operands64(len);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
                 self.push_result_bool(lhs < rhs);
             }
-            Instruction::Equal => {
+            Ins::Equal { len } => {
                 // data ( lhsLEN, rhsLEN -- result8)
-                let (lhs, rhs) = self.pop_operands64(len);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
                 self.push_result_bool(lhs == rhs);
             }
-            Instruction::NotEqual => {
+            Ins::NotEqual { len } => {
                 // data ( lhsLEN, rhsLEN -- result8)
-                let (lhs, rhs) = self.pop_operands64(len);
+                let (lhs, rhs) = self.pop_operands64(len as usize);
                 self.push_result_bool(lhs != rhs);
             }
 
-            // bitwise logic
-            Instruction::And => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs & rhs);
+            // float arithmetic
+            Ins::AddF { len } => match len {
+                instruction::LenF::L32 => {
+                    let (lhs, rhs) = self.pop_operands32(4);
+                    let result = f32_from_u32(lhs) + f32_from_u32(rhs);
+                    self.push_result32(len as usize, u32_from_f32(result))
+                }
+                instruction::LenF::L64 => {
+                    let (lhs, rhs) = self.pop_operands64(8);
+                    let result = f64_from_u64(lhs) + f64_from_u64(rhs);
+                    self.push_result64(len as usize, u64_from_f64(result))
+                }
+            },
+            Ins::SubtractF { len } => match len {
+                instruction::LenF::L32 => {
+                    let (lhs, rhs) = self.pop_operands32(4);
+                    let result = f32_from_u32(lhs) - f32_from_u32(rhs);
+                    self.push_result32(len as usize, u32_from_f32(result))
+                }
+                instruction::LenF::L64 => {
+                    let (lhs, rhs) = self.pop_operands64(8);
+                    let result = f64_from_u64(lhs) - f64_from_u64(rhs);
+                    self.push_result64(len as usize, u64_from_f64(result))
+                }
+            },
+            Ins::MultiplyF { len } => match len {
+                instruction::LenF::L32 => {
+                    let (lhs, rhs) = self.pop_operands32(4);
+                    let result = f32_from_u32(lhs) * f32_from_u32(rhs);
+                    self.push_result32(len as usize, u32_from_f32(result))
+                }
+                instruction::LenF::L64 => {
+                    let (lhs, rhs) = self.pop_operands64(8);
+                    let result = f64_from_u64(lhs) * f64_from_u64(rhs);
+                    self.push_result64(len as usize, u64_from_f64(result))
+                }
+            },
+            Ins::DivideF { len } => match len {
+                instruction::LenF::L32 => {
+                    let (lhs, rhs) = self.pop_operands32(4);
+                    let result = f32_from_u32(lhs) / f32_from_u32(rhs);
+                    self.push_result32(len as usize, u32_from_f32(result))
+                }
+                instruction::LenF::L64 => {
+                    let (lhs, rhs) = self.pop_operands64(8);
+                    let result = f64_from_u64(lhs) / f64_from_u64(rhs);
+                    self.push_result64(len as usize, u64_from_f64(result))
+                }
+            },
+
+            // float comparisons
+            Ins::GreaterF { len } => {
+                let result = match len {
+                    instruction::LenF::L32 => {
+                        let (lhs, rhs) = self.pop_operands32(4);
+                        f32_from_u32(lhs) > f32_from_u32(rhs)
+                    }
+                    instruction::LenF::L64 => {
+                        let (lhs, rhs) = self.pop_operands64(8);
+                        f64_from_u64(lhs) > f64_from_u64(rhs)
+                    }
+                };
+                self.push_result_bool(result)
             }
-            Instruction::Or => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs | rhs);
-            }
-            Instruction::Xor => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (lhs, rhs) = self.pop_operands64(len);
-                self.push_result64(len, lhs ^ rhs);
-            }
-            Instruction::Not => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let operand = self.pop_operand64(len);
-                self.push_result64(len, !operand);
-            }
-            Instruction::ShiftL => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (shift, operand) = self.pop_operands64(len);
-                self.push_result64(len, operand << shift);
-            }
-            Instruction::ShiftR => {
-                // data ( lhsLEN, rhsLEN -- resultLEN)
-                let (shift, operand) = self.pop_operands64(len);
-                self.push_result64(len, operand >> shift);
+            Ins::LessF { len } => {
+                let result = match len {
+                    instruction::LenF::L32 => {
+                        let (lhs, rhs) = self.pop_operands32(4);
+                        f32_from_u32(lhs) < f32_from_u32(rhs)
+                    }
+                    instruction::LenF::L64 => {
+                        let (lhs, rhs) = self.pop_operands64(8);
+                        f64_from_u64(lhs) < f64_from_u64(rhs)
+                    }
+                };
+                self.push_result_bool(result)
             }
 
-            // dropping stacks
-            Instruction::DropData => self.data_st.drop(len),
-            Instruction::DropSwap => self.swap_st.drop(len),
-            Instruction::DropReturn => self.return_st.drop(len),
+            // bitwise logic
+            Ins::And { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs & rhs);
+            }
+            Ins::Or { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs | rhs);
+            }
+            Ins::Xor { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let (lhs, rhs) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, lhs ^ rhs);
+            }
+            Ins::Not { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let operand = self.pop_operand64(len as usize);
+                self.push_result64(len as usize, !operand);
+            }
+            Ins::ShiftL { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let (shift, operand) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, operand << shift);
+            }
+            Ins::ShiftR { len } => {
+                // data ( lhsLEN, rhsLEN -- resultLEN)
+                let (shift, operand) = self.pop_operands64(len as usize);
+                self.push_result64(len as usize, operand >> shift);
+            }
         }
 
         self.program_counter += 1;
-    }
-
-    fn le_slice_to_u32(slice: &[u8]) -> u32 {
-        let mut result = 0u32;
-
-        for i in 0..4 {
-            let byte = (slice[i]) as u32;
-            let chunk = byte << (i * 8);
-            result = result | chunk;
-        }
-
-        result
-    }
-    fn le_slice_to_u64(slice: &[u8]) -> u64 {
-        let mut result = 0u64;
-
-        for i in 0..8 {
-            let byte = (slice[i]) as u64;
-            let chunk = byte << (i * 8);
-            result = result | chunk;
-        }
-
-        result
     }
 
     fn get_lit_range(&self, len: usize) -> std::ops::Range<usize> {
@@ -509,7 +425,7 @@ impl CPU {
     }
 
     fn pop_operand8(&mut self) -> u8 {
-        let operand = self.data_st.top_byte();
+        let operand = le_slice_to_u8(self.data_st.pop(1));
         self.data_st.drop(1);
         operand
     }
@@ -517,8 +433,17 @@ impl CPU {
         (self.pop_operand8(), self.pop_operand8())
     }
 
+    fn pop_operand16(&mut self, len: usize) -> u16 {
+        let operand = le_slice_to_u16(self.data_st.pop(len));
+        self.data_st.drop(len);
+        operand
+    }
+    fn pop_operands16(&mut self, len: usize) -> (u16, u16) {
+        (self.pop_operand16(len), self.pop_operand16(len))
+    }
+
     fn pop_operand32(&mut self, len: usize) -> u32 {
-        let operand = CPU::le_slice_to_u32(self.data_st.pop(len));
+        let operand = le_slice_to_u32(self.data_st.pop(len));
         self.data_st.drop(len);
         operand
     }
@@ -527,7 +452,7 @@ impl CPU {
     }
 
     fn pop_operand64(&mut self, len: usize) -> u64 {
-        let operand = CPU::le_slice_to_u64(self.data_st.pop(len));
+        let operand = le_slice_to_u64(self.data_st.pop(len));
         self.data_st.drop(len);
         operand
     }
@@ -542,7 +467,7 @@ impl CPU {
         });
     }
     fn push_result8(&mut self, result: u8) {
-        self.data_st.push_byte(result);
+        self.data_st.push(&result.to_le_bytes());
     }
     fn push_result32(&mut self, len: usize, result: u32) {
         self.data_st.push(&result.to_le_bytes()[0..len]);
@@ -550,4 +475,55 @@ impl CPU {
     fn push_result64(&mut self, len: usize, result: u64) {
         self.data_st.push(&result.to_le_bytes()[0..len]);
     }
+}
+
+fn le_slice_to_u8(slice: &[u8]) -> u8 {
+    slice[0].clone()
+}
+fn le_slice_to_u16(slice: &[u8]) -> u16 {
+    let mut result = 0u16;
+
+    for i in 0..2 {
+        let byte = (slice[i]) as u16;
+        let chunk = byte << (i * 8);
+        result = result | chunk;
+    }
+
+    result
+}
+fn le_slice_to_u32(slice: &[u8]) -> u32 {
+    let mut result = 0u32;
+
+    for i in 0..4 {
+        let byte = (slice[i]) as u32;
+        let chunk = byte << (i * 8);
+        result = result | chunk;
+    }
+
+    result
+}
+fn le_slice_to_u64(slice: &[u8]) -> u64 {
+    let mut result = 0u64;
+
+    for i in 0..8 {
+        let byte = (slice[i]) as u64;
+        let chunk = byte << (i * 8);
+        result = result | chunk;
+    }
+
+    result
+}
+
+fn f32_from_u32(bytes: u32) -> f32 {
+    f32::from_le_bytes(bytes.to_le_bytes())
+}
+fn u32_from_f32(bytes: f32) -> u32 {
+    u32::from_le_bytes(bytes.to_le_bytes())
+}
+
+fn f64_from_u64(bytes: u64) -> f64 {
+    f64::from_le_bytes(bytes.to_le_bytes())
+}
+fn u64_from_f64(bytes: f64) -> u64 {
+    u64::from_le_bytes(bytes.to_le_bytes())
 }

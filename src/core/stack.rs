@@ -1,75 +1,67 @@
-use std::ops::Range;
-
 use super::{Pop, Push};
+
+const STACK_SIZE: usize = 256;
 
 pub(crate) struct Stack {
     pointer: usize,
-    buffer: [u8; 256],
+    buffer: [u8; STACK_SIZE],
 }
 impl Stack {
     pub fn new() -> Stack {
         Stack {
             pointer: 0,
-            buffer: [0; 256],
+            buffer: [0; STACK_SIZE],
         }
     }
-    pub fn push_byte(&mut self, byte: u8) {
-        self.buffer[self.pointer] = byte;
-        self.pointer += 1;
-        if self.pointer >= 256 {
-            panic!("Stack Overflow")
-        }
+    pub fn len(&self) -> usize {
+        self.pointer
     }
     pub fn duplicate(&mut self, len: usize) {
-        let top = self.top_range(len);
-        self.buffer.copy_within(top, self.pointer + 1);
+        if self.pointer < len {
+            panic!("Stack Underflow");
+        }
+        if self.pointer + len > STACK_SIZE {
+            panic!("Stack Overflow")
+        }
+
+        let top_range = self.pointer - len..self.pointer;
+        self.buffer.copy_within(top_range, self.pointer);
         self.pointer += len;
     }
     pub fn drop(&mut self, len: usize) {
-        if len > self.pointer {
+        if self.pointer < len {
             panic!("Stack Underflow");
         }
+
         self.pointer -= len;
-    }
-    pub fn top_byte(&mut self) -> u8 {
-        if self.pointer == 0 {
-            panic!("Stack Underflow")
-        }
-        self.buffer[self.pointer - 1]
-    }
-
-    pub fn get_slice(&self, range: Range<usize>) -> &[u8] {
-        &self.buffer[range]
-    }
-    pub fn make_range(&self, len: usize, pos: isize) -> Range<usize> {
-        let offset = pos * len as isize;
-        let end = self.pointer + offset as usize;
-        let start = end - len;
-
-        start..end
-    }
-    pub fn top_range(&self, len: usize) -> Range<usize> {
-        self.make_range(len, 0)
-    }
-    pub fn next_range(&self, len: usize) -> Range<usize> {
-        self.make_range(len, -1)
     }
 }
 
 impl Push for Stack {
     fn push(&mut self, bytes: &[u8]) {
-        let len = bytes.len();
-        let range = self.next_range(len);
-        self.buffer[range].copy_from_slice(bytes);
-        self.pointer += len;
-        if self.pointer >= 256 {
-            panic!("Stack Overflow");
+        let start = self.pointer;
+        let end = self.pointer + bytes.len();
+        if end > STACK_SIZE {
+            panic!("Stack Overflow")
         }
+
+        self.buffer[start..end].copy_from_slice(bytes);
+        self.pointer = end;
     }
 }
 
 impl Pop for Stack {
     fn pop(&self, len: usize) -> &[u8] {
-        self.get_slice(self.top_range(len))
+        if self.pointer < len {
+            panic!("Stack Underflow");
+        }
+
+        &self.buffer[self.pointer - len..self.pointer]
+    }
+}
+
+impl std::fmt::Display for Stack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:02X?}", &self.buffer[0..self.pointer])
     }
 }

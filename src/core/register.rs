@@ -33,3 +33,9 @@ impl Pop for Register64 {
         &self.buffer[0..len]
     }
 }
+
+impl std::fmt::Display for Register64 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:02X?}", self.buffer)
+    }
+}
