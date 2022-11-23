@@ -1,4 +1,5 @@
 mod instruction;
+mod len;
 mod register;
 mod stack;
 
@@ -306,48 +307,48 @@ impl CPU {
 
             // float arithmetic
             Ins::AddF { len } => match len {
-                instruction::LenF::L32 => {
+                len::LenF::L32 => {
                     let (lhs, rhs) = self.pop_operands32(4);
                     let result = f32_from_u32(lhs) + f32_from_u32(rhs);
                     self.push_result32(len as usize, u32_from_f32(result))
                 }
-                instruction::LenF::L64 => {
+                len::LenF::L64 => {
                     let (lhs, rhs) = self.pop_operands64(8);
                     let result = f64_from_u64(lhs) + f64_from_u64(rhs);
                     self.push_result64(len as usize, u64_from_f64(result))
                 }
             },
             Ins::SubtractF { len } => match len {
-                instruction::LenF::L32 => {
+                len::LenF::L32 => {
                     let (lhs, rhs) = self.pop_operands32(4);
                     let result = f32_from_u32(lhs) - f32_from_u32(rhs);
                     self.push_result32(len as usize, u32_from_f32(result))
                 }
-                instruction::LenF::L64 => {
+                len::LenF::L64 => {
                     let (lhs, rhs) = self.pop_operands64(8);
                     let result = f64_from_u64(lhs) - f64_from_u64(rhs);
                     self.push_result64(len as usize, u64_from_f64(result))
                 }
             },
             Ins::MultiplyF { len } => match len {
-                instruction::LenF::L32 => {
+                len::LenF::L32 => {
                     let (lhs, rhs) = self.pop_operands32(4);
                     let result = f32_from_u32(lhs) * f32_from_u32(rhs);
                     self.push_result32(len as usize, u32_from_f32(result))
                 }
-                instruction::LenF::L64 => {
+                len::LenF::L64 => {
                     let (lhs, rhs) = self.pop_operands64(8);
                     let result = f64_from_u64(lhs) * f64_from_u64(rhs);
                     self.push_result64(len as usize, u64_from_f64(result))
                 }
             },
             Ins::DivideF { len } => match len {
-                instruction::LenF::L32 => {
+                len::LenF::L32 => {
                     let (lhs, rhs) = self.pop_operands32(4);
                     let result = f32_from_u32(lhs) / f32_from_u32(rhs);
                     self.push_result32(len as usize, u32_from_f32(result))
                 }
-                instruction::LenF::L64 => {
+                len::LenF::L64 => {
                     let (lhs, rhs) = self.pop_operands64(8);
                     let result = f64_from_u64(lhs) / f64_from_u64(rhs);
                     self.push_result64(len as usize, u64_from_f64(result))
@@ -357,11 +358,11 @@ impl CPU {
             // float comparisons
             Ins::GreaterF { len } => {
                 let result = match len {
-                    instruction::LenF::L32 => {
+                    len::LenF::L32 => {
                         let (lhs, rhs) = self.pop_operands32(4);
                         f32_from_u32(lhs) > f32_from_u32(rhs)
                     }
-                    instruction::LenF::L64 => {
+                    len::LenF::L64 => {
                         let (lhs, rhs) = self.pop_operands64(8);
                         f64_from_u64(lhs) > f64_from_u64(rhs)
                     }
@@ -370,11 +371,11 @@ impl CPU {
             }
             Ins::LessF { len } => {
                 let result = match len {
-                    instruction::LenF::L32 => {
+                    len::LenF::L32 => {
                         let (lhs, rhs) = self.pop_operands32(4);
                         f32_from_u32(lhs) < f32_from_u32(rhs)
                     }
-                    instruction::LenF::L64 => {
+                    len::LenF::L64 => {
                         let (lhs, rhs) = self.pop_operands64(8);
                         f64_from_u64(lhs) < f64_from_u64(rhs)
                     }
