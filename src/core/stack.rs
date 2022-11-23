@@ -2,7 +2,7 @@ use super::{Pop, Push};
 
 const STACK_SIZE: usize = 256;
 
-pub(crate) struct Stack {
+pub struct Stack {
     pointer: usize,
     buffer: [u8; STACK_SIZE],
 }

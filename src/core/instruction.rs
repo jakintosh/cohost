@@ -455,7 +455,7 @@ impl From<u8> for Ins {
     }
 }
 
-fn disassemble(byte: u8) -> &'static str {
+pub fn opcode_to_str(byte: u8) -> &'static str {
     match byte {
         // 0b00000_0000,
         // 0b00000_0001,
@@ -716,7 +716,7 @@ fn disassemble(byte: u8) -> &'static str {
         _ => "NOP",
     }
 }
-fn assemble(s: &str) -> Result<u8, String> {
+pub fn str_to_opcode(s: &str) -> Option<u8> {
     let byte = match s {
         // 0b00000_0000,
         // 0b00000_0001,
@@ -974,9 +974,9 @@ fn assemble(s: &str) -> Result<u8, String> {
         "DRS" => 0b1111_1101,   // => Ins::DropSwap,
         "DRR" => 0b1111_1110,   // => Ins::DropReturn,
 
-        _ => 0b1111_1111,
+        _ => return None,
     };
-    Ok(byte)
+    Some(byte)
 }
 
 impl std::fmt::Display for Ins {

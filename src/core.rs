@@ -3,8 +3,10 @@ mod len;
 mod register;
 mod stack;
 
-pub use instruction::Ins;
+pub use instruction::Ins as Instruction;
+pub use instruction::{opcode_to_str, str_to_opcode};
 
+use instruction::Ins;
 use register::Register64;
 use stack::Stack;
 
@@ -65,7 +67,7 @@ impl DMA {
     }
 }
 
-pub(crate) struct CPU {
+pub struct CPU {
     pub program_counter: u16,
     pub memory_address: u64,
 
@@ -99,6 +101,13 @@ impl CPU {
         }
     }
 
+    pub fn load_rom(&mut self, rom: Vec<u8>) {
+        let rom_len = rom.len();
+        if rom_len > self.memory.len() {
+            panic!("trying to lod rom too big for memory")
+        }
+        self.memory[0..rom_len].copy_from_slice(&rom[..]);
+    }
     pub fn connect_device(&mut self, identifier: [u8; 32]) {
         fn get_free_slot(mask: u16) -> Option<usize> {
             for i in 0..DEVICE_COUNT {
@@ -484,7 +493,8 @@ fn le_slice_to_u8(slice: &[u8]) -> u8 {
 fn le_slice_to_u16(slice: &[u8]) -> u16 {
     let mut result = 0u16;
 
-    for i in 0..2 {
+    let max = usize::min(2, slice.len());
+    for i in 0..max {
         let byte = (slice[i]) as u16;
         let chunk = byte << (i * 8);
         result = result | chunk;
@@ -495,7 +505,8 @@ fn le_slice_to_u16(slice: &[u8]) -> u16 {
 fn le_slice_to_u32(slice: &[u8]) -> u32 {
     let mut result = 0u32;
 
-    for i in 0..4 {
+    let max = usize::min(4, slice.len());
+    for i in 0..max {
         let byte = (slice[i]) as u32;
         let chunk = byte << (i * 8);
         result = result | chunk;
@@ -506,7 +517,8 @@ fn le_slice_to_u32(slice: &[u8]) -> u32 {
 fn le_slice_to_u64(slice: &[u8]) -> u64 {
     let mut result = 0u64;
 
-    for i in 0..8 {
+    let max = usize::min(8, slice.len());
+    for i in 0..max {
         let byte = (slice[i]) as u64;
         let chunk = byte << (i * 8);
         result = result | chunk;
