@@ -1,0 +1,50 @@
+( macros )
+%stash CDR8 DRD ;
+%unstash CRD8 DRR ;
+%swap CDS8 DRD ;
+%unswap CSD8 DRS ;
+%hold CDH8 DRD ;
+%unhold CHD8 ;
+%zero LIT8 0 ;
+%one LIT8 1 ;
+%decrement ~one SUB8 ;
+%exit? CRD8 ~zero EQU8 ;
+%loop-head #loop ~exit? &loop-end JCR8 ;
+%loop-tail >decrement-return &loop JPR8 #loop-end DRR ;
+
+( local routines )
+: decrement-return ~unstash ~decrement ~stash ;
+: pop-loop ~loop-head ~swap ~loop-tail ;
+: push-loop ~loop-head ~unswap ~loop-tail ;
+
+( exported routines )
+^ reverse ( 1b, 2b .. nb, bn -- nb .. 2b, 1b )
+    ~decrement ~stash
+    ~loop-head
+        ~hold DPR8 >pop-loop
+        ~unhold DPR8 >push-loop
+    ~loop-tail
+;
+
+( start comment
+) end comment
+: start local routine
+^ start exported routine
+% start macro
+; end routine or macro
+< call external routine
+> call local routine
+$ address of local routine
+@ address of external routine
+~ include macro
+# define label
+* address of label
+& relative address of label
+| unused
+\ unused
+/ unused
+= unused
++ unused
+- unused
+[ unused
+] unused
