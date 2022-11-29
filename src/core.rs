@@ -164,6 +164,8 @@ impl CPU {
                 con: conditional,
                 rel: relative,
             } => {
+                let address = self.pop_operand16(len as usize);
+
                 if conditional {
                     let condition = le_slice_to_u8(self.data_st.pop(1));
                     self.data_st.drop(1);
@@ -172,10 +174,9 @@ impl CPU {
                     };
                 }
 
-                let value = self.pop_operand16(len as usize);
                 self.program_counter = match relative {
-                    true => self.program_counter + value,
-                    false => value,
+                    true => self.program_counter + address,
+                    false => address,
                 };
 
                 return; // avoid default PC increment
