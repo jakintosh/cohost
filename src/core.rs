@@ -1,3 +1,4 @@
+pub mod device;
 mod instruction;
 mod len;
 mod register;

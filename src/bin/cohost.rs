@@ -1,5 +1,7 @@
-use cohost::core;
-use cohost::device::{Device, Devices};
+use cohost::core::{
+    self,
+    device::{Device, Devices},
+};
 use std::{
     collections::HashMap,
     io::{Read, Write},

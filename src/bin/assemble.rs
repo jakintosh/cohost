@@ -1,3 +1,6 @@
+use cohost::assembler::parsing::binary_from_text;
+use cohost::assembler::parsing::from_text;
+
 use std::{collections::HashMap, path::PathBuf};
 
 const HELP: &str = "
@@ -76,95 +79,12 @@ fn main() -> Result<(), String> {
     })?;
 
     let assembly = std::fs::read_to_string(source).expect("couldn't read source");
-    let tokens: Vec<_> = assembly.split_whitespace().collect();
-    let mut binary: Vec<u8> = Vec::with_capacity(tokens.len());
+    let repr = from_text(&assembly);
+    println!("Extracted Representation:\n\n{}", repr);
 
-    let mut i = 0;
-    while i < tokens.len() {
-        let token = tokens[i];
-        println!("reading token: {}", token);
-        let Some(opcode) = cohost::core::str_to_opcode(token) else {
-            panic!("received invalid token {}", token);
-        };
-        binary.push(opcode);
+    Ok(())
 
-        // uh, check for literals i guess?
-        if opcode >= 176 && opcode < 180 {
-            i += 1;
-            let lit_token = tokens[i];
-            println!("reading token: {}", lit_token);
-            match opcode {
-                176 => {
-                    let Some(lit) = parse_lit8(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.push(lit);
-                }
-                177 => {
-                    let Some(lit) = parse_lit16(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                178 => {
-                    let Some(lit) = parse_lit32(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                179 => {
-                    let Some(lit) = parse_lit64(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                _ => {} // do nothing
-            }
-        }
+    // let binary = binary_from_text(&assembly);
 
-        i += 1;
-    }
-
-    std::fs::write(output, binary).map_err(|e| format!("{}", e))
-}
-
-fn parse_lit8(token: &str) -> Option<u8> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u8::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-fn parse_lit16(token: &str) -> Option<u16> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u16::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-fn parse_lit32(token: &str) -> Option<u32> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u32::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-fn parse_lit64(token: &str) -> Option<u64> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u64::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
+    // std::fs::write(output, binary).map_err(|e| format!("{}", e))
 }
