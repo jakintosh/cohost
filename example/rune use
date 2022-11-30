@@ -1,0 +1,22 @@
+( start comment
+) end comment
+: start local routine
+^ start exported routine
+% start macro
+; end routine or macro
+< call external routine
+> call local routine
+$ address of local routine
+@ address of external routine
+~ include macro
+# define label
+* address of label
+& relative address of label
+| unused
+\ unused
+/ unused
+= unused
++ unused
+- unused
+[ unused
+] unused
