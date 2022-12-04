@@ -1,17 +1,22 @@
-use crate::assembler::representation::Component;
-use crate::assembler::representation::Module;
+use crate::assembler::representation::{Component, Literal, Module, RawToken, Token};
+use core::str::Chars;
 
 const COMMENT_OPEN: char = '(';
 const COMMENT_CLOSE: char = ')';
 const ROUTINE_DEF: char = ':';
 const EXPORTED_ROUTINE_DEF: char = '^';
-const MACRO_DEF: char = '%';
 const ROUTINE_CLOSE: char = ';';
 const ROUTINE_CALL: char = '>';
 const EXPORTED_ROUTINE_CALL: char = '<';
-const MACRO_USE: char = '~';
 const ROUTINE_ADDRESS: char = '$';
 const EXPORTED_ROUTINE_ADDRESS: char = '@';
+const MACRO_DEF: char = '%';
+const MACRO_PARAM_OPEN: char = '[';
+const MACRO_PARAM_CLOSE: char = ']';
+const MACRO_PARAM_USE_OPEN: char = '{';
+const MACRO_PARAM_USE_CLOSE: char = '}';
+const MACRO_PARAM_SEPARATE: char = ',';
+const MACRO_USE: char = '~';
 const LABEL_DEF: char = '#';
 const LABEL_ADDR_ABS: char = '*';
 const LABEL_ADDR_REL: char = '&';
@@ -21,154 +26,168 @@ const LABEL_ADDR_REL: char = '&';
 // const unused: char = '=';
 // const unused: char = '+';
 // const unused: char = '-';
-// const unused: char = '[';
-// const unused: char = ']';
 
-pub fn from_text(assembly_text: &str) -> Module {
-    fn tokens_until(close: char, chars: &mut core::str::Chars) -> Vec<String> {
-        let mut buffer = String::new();
-        let mut tokens: Vec<String> = Vec::new();
-        while let Some(c) = chars.next() {
-            match c {
-                c if c == close => break,
-                c if c.is_whitespace() => {
-                    if !buffer.is_empty() {
-                        tokens.push(buffer.clone());
-                        buffer.clear();
-                    }
-                }
-                _ => buffer.push(c),
-            }
+fn string_until(close_char: char, chars: &mut Chars) -> Result<String, String> {
+    let mut string = String::new();
+    while let Some(c) = chars.next() {
+        match c {
+            c if c == close_char => break,
+            _ => string.push(c),
         }
-        tokens
+    }
+    Ok(string)
+}
+fn raw_tokens_until(close_char: char, chars: &mut Chars) -> Result<Vec<RawToken>, String> {
+    fn close_token(buffer: &mut String, strings: &mut Vec<RawToken>) {
+        if !buffer.is_empty() {
+            let string = buffer.clone();
+            strings.push(RawToken::Token { string });
+            buffer.clear();
+        }
     }
 
+    let mut buffer = String::new();
+    let mut raw_tokens: Vec<RawToken> = Vec::new();
+    while let Some(c) = chars.next() {
+        match c {
+            c if c == close_char => break,
+            c if c == COMMENT_OPEN => {
+                close_token(&mut buffer, &mut raw_tokens);
+                let string = string_until(COMMENT_CLOSE, chars)?.trim().into();
+                raw_tokens.push(RawToken::Comment { string });
+            }
+            c if c.is_whitespace() => {
+                close_token(&mut buffer, &mut raw_tokens);
+            }
+            _ => buffer.push(c),
+        }
+    }
+    Ok(raw_tokens)
+}
+fn parse_token(raw_token: RawToken) -> Result<Token, String> {
+    let string = match raw_token {
+        RawToken::Token { string } => string,
+        RawToken::Comment { string } => return Ok(Token::Comment { string }),
+    };
+
+    let mut chars = string.chars();
+    match chars.next() {
+        Some(c) => {
+            let token = match c {
+                ROUTINE_CALL => Token::RoutineCallLocal {
+                    id: chars.collect(),
+                },
+                EXPORTED_ROUTINE_CALL => Token::RoutineCallExported {
+                    id: chars.collect(),
+                },
+                ROUTINE_ADDRESS => Token::RoutineAddressLocal {
+                    id: chars.collect(),
+                },
+                EXPORTED_ROUTINE_ADDRESS => Token::RoutineAddressExported {
+                    id: chars.collect(),
+                },
+                MACRO_USE => Token::MacroUse {
+                    id: chars.collect(),
+                },
+                LABEL_DEF => Token::LabelDef {
+                    id: chars.collect(),
+                },
+                LABEL_ADDR_REL => Token::LabelAddressRelative {
+                    id: chars.collect(),
+                },
+                LABEL_ADDR_ABS => Token::LabelAddressAbsolute {
+                    id: chars.collect(),
+                },
+                c => {
+                    let mut string = String::from(c);
+                    string.push_str(&chars.collect::<String>());
+                    match crate::core::str_to_opcode(&string) {
+                        Some(code) => Token::Instruction { code },
+                        None => Token::Comment { string },
+                    }
+                }
+            };
+            Ok(token)
+        }
+        None => Err("Empty token".into()),
+    }
+}
+
+pub fn from_text(assembly_text: &str) -> Result<Module, String> {
     let mut components = Vec::new();
     let mut chars = assembly_text.chars();
     while let Some(c) = chars.next() {
         match c {
             COMMENT_OPEN => {
-                let tokens = tokens_until(COMMENT_CLOSE, &mut chars);
-                components.push(Component::Comment { tokens });
+                let string = string_until(COMMENT_CLOSE, &mut chars)?.trim().into();
+                components.push(Component::Comment { string });
             }
-            MACRO_DEF => {
-                let tokens = tokens_until(ROUTINE_CLOSE, &mut chars);
-                let (label, tokens) = (tokens[0].clone(), Vec::from(&tokens[1..]));
-                components.push(Component::Macro { label, tokens });
+            MACRO_DEF | EXPORTED_ROUTINE_DEF | ROUTINE_DEF => {
+                let mut raw_tokens = raw_tokens_until(ROUTINE_CLOSE, &mut chars)?.into_iter();
+                let Some(RawToken::Token{ string: label}) = raw_tokens.next() else {
+                    let name = if c == MACRO_DEF { "Macro" } else { "Routine" };
+                    return Err(format!("Missing {} Label", name));
+                };
+                let mut tokens = Vec::new();
+                while let Some(raw_token) = raw_tokens.next() {
+                    let token = match parse_token(raw_token)? {
+                        // if lit token
+                        Token::Instruction { code } if code >= 176 && code < 180 => {
+                            // get next non-comment token
+                            let next_token_string = loop {
+                                match raw_tokens.next() {
+                                    Some(RawToken::Comment { string }) => {
+                                        tokens.push(Token::Comment { string })
+                                    }
+                                    Some(RawToken::Token { string }) => break string,
+                                    None => return Err("LIT not followed by another token".into()),
+                                }
+                            };
+
+                            // parse num
+                            let Some(num) = parse_number(&next_token_string) else {
+                                return Err("Couldn't parse number from token after LIT".into());
+                            };
+                            let literal = match code {
+                                176 => Literal::Byte(num as u8),
+                                177 => Literal::Short(num as u16),
+                                178 => Literal::Int(num as u32),
+                                179 => Literal::Long(num),
+                                _ => unreachable!(),
+                            };
+                            Token::Literal { literal }
+                        }
+                        token => token,
+                    };
+                    tokens.push(token);
+                }
+                match c {
+                    MACRO_DEF => components.push(Component::Macro { label, tokens }),
+                    EXPORTED_ROUTINE_DEF => components.push(Component::Routine {
+                        export: true,
+                        label,
+                        tokens,
+                    }),
+                    ROUTINE_DEF => components.push(Component::Routine {
+                        export: false,
+                        label,
+                        tokens,
+                    }),
+                    _ => unreachable!(),
+                }
             }
-            ROUTINE_DEF => {
-                let tokens = tokens_until(ROUTINE_CLOSE, &mut chars);
-                let (label, tokens) = (tokens[0].clone(), Vec::from(&tokens[1..]));
-                components.push(Component::Routine {
-                    export: false,
-                    label,
-                    tokens,
-                });
-            }
-            EXPORTED_ROUTINE_DEF => {
-                let tokens = tokens_until(ROUTINE_CLOSE, &mut chars);
-                let (label, tokens) = (tokens[0].clone(), Vec::from(&tokens[1..]));
-                components.push(Component::Routine {
-                    export: true,
-                    label,
-                    tokens,
-                });
-            }
-            c if c.is_whitespace() => {}
-            _ => {}
+            c if c.is_whitespace() => continue,
+            c => println!("found character {} outside component definition", c),
         }
     }
 
-    Module { components }
+    Ok(Module { components })
 }
 
-pub fn binary_from_text(assembly_text: &str) -> Vec<u8> {
-    let tokens: Vec<_> = assembly_text.split_whitespace().collect();
-    let mut binary: Vec<u8> = Vec::with_capacity(tokens.len());
-
-    let mut i = 0;
-    while i < tokens.len() {
-        let token = tokens[i];
-        println!("reading token: {}", token);
-        let Some(opcode) = crate::core::str_to_opcode(token) else {
-            panic!("received invalid token {}", token);
-        };
-        binary.push(opcode);
-
-        // uh, check for literals i guess?
-        if opcode >= 176 && opcode < 180 {
-            i += 1;
-            let lit_token = tokens[i];
-            println!("reading token: {}", lit_token);
-            match opcode {
-                176 => {
-                    let Some(lit) = parse_lit8(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.push(lit);
-                }
-                177 => {
-                    let Some(lit) = parse_lit16(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                178 => {
-                    let Some(lit) = parse_lit32(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                179 => {
-                    let Some(lit) = parse_lit64(lit_token) else {
-                        panic!("couldn't parse lit: {}", token)
-                    };
-                    binary.extend_from_slice(&lit.to_le_bytes());
-                }
-                _ => {} // do nothing
-            }
-        }
-
-        i += 1;
-    }
-
-    binary
-}
-
-pub fn parse_lit8(token: &str) -> Option<u8> {
-    let (token, radix) = match token.strip_prefix("0x") {
+fn parse_number(string: &str) -> Option<u64> {
+    let (token, radix) = match string.strip_prefix("0x") {
         Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u8::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-pub fn parse_lit16(token: &str) -> Option<u16> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u16::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-pub fn parse_lit32(token: &str) -> Option<u32> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
-    };
-    match u32::from_str_radix(token, radix) {
-        Ok(lit) => Some(lit),
-        Err(_) => None,
-    }
-}
-pub fn parse_lit64(token: &str) -> Option<u64> {
-    let (token, radix) = match token.strip_prefix("0x") {
-        Some(hex) => (hex, 16),
-        None => (token, 10),
+        None => (string, 10),
     };
     match u64::from_str_radix(token, radix) {
         Ok(lit) => Some(lit),

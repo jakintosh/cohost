@@ -9,17 +9,19 @@ use std::{
 };
 
 const HELP: &str = "
-assemble v1 by @jakintosh
+cohost v1 by @jakintosh
+
+executes assembled bytecode for the coalescent core virtual CPU.
+pass in the location of the binary rom you want to run.
 
 USAGE:
-`-s` or `--source` (optional, default is '.')  | file with source code
-`-o` or `--output` (required)                  | file for compiled output
+`-r` or `--rom`  | rom file
 
 VALID ARGUMENT SYNTAX:
-    `-s=file`
-    `-s file`
-    `--source=file`
-    `--source file`";
+    `-r=file`
+    `-r file`
+    `--rom=file`
+    `--rom file`";
 
 struct Parameters {
     rom: PathBuf,
@@ -70,7 +72,7 @@ impl TryFrom<std::env::Args> for Parameters {
             }
         }
 
-        let rom = map_arg(&map, "r", "rom", Ok(".".into()))?.into();
+        let rom = map_arg(&map, "r", "rom", Err("--rom param missing".into()))?.into();
         Ok::<Parameters, String>(Parameters { rom })
     }
 }

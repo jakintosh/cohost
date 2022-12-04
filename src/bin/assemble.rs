@@ -1,14 +1,20 @@
-use cohost::assembler::parsing::binary_from_text;
-use cohost::assembler::parsing::from_text;
+use cohost::assembler::{
+    library::{Context, Library},
+    parsing::from_text,
+};
 
 use std::{collections::HashMap, path::PathBuf};
 
 const HELP: &str = "
 assemble v1 by @jakintosh
 
+assembles machine instructions for the coalescent core virtual CPU.
+pass in the location of the '.co' assembly file, and a location for
+the assembled binary output.
+
 USAGE:
-`-s` or `--source` (optional, default is '.')  | file with source code
-`-o` or `--output` (required)                  | file for compiled output
+`-s` or `--source`              | file with source code
+`-o` or `--output` (required)   | file for compiled output
 
 VALID ARGUMENT SYNTAX:
     `-s=file`
@@ -66,7 +72,7 @@ impl TryFrom<std::env::Args> for Parameters {
             }
         }
 
-        let source = map_arg(&map, "s", "source", Ok(".".into()))?.into();
+        let source = map_arg(&map, "s", "source", Err("--source param missing".into()))?.into();
         let output = map_arg(&map, "o", "output", Err("--output param missing".into()))?.into();
         Ok::<Parameters, String>(Parameters { source, output })
     }
@@ -79,8 +85,12 @@ fn main() -> Result<(), String> {
     })?;
 
     let assembly = std::fs::read_to_string(source).expect("couldn't read source");
-    let repr = from_text(&assembly);
-    println!("Extracted Representation:\n\n{}", repr);
+    let module = from_text(&assembly)?;
+    println!("Parsed Module:\n\n{}", module);
+    let library = Library::new();
+    let mut context = Context::new(&library);
+    context.parse_module(module)?;
+    let byteco = context.assemble()?;
 
     Ok(())
 
