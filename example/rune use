@@ -4,19 +4,48 @@
 ^ start exported routine
 % start macro
 ; end routine or macro
-< call external routine
+< call exported routine
 > call local routine
 $ address of local routine
-@ address of external routine
+@ address of exported routine
 ~ include macro
-# define label
-* address of label
-& relative address of label
+[ parameter list def open
+] parameter list def close
+{ parameter interp open
+} parameter interp close
+' parameter
+# define anchor
+* address of anchor
+& relative address of anchor
 | unused
 \ unused
 / unused
 = unused
 + unused
-- unused
-[ unused
-] unused
+! unused
+" unused
+` unused
+, unused
+. unused
+- valid label character
+? valid label character
+
+component tokens
+: ^ % ; [ ] ( )
+
+label tokens
+< > $ @ ~ # * &
+
+other
+{ }
+
+
+
+I type something
+spaces are important
+i will look at inner stuff
+chunk everything by whitespace
+look at start rune for info
+look at end rune for closers
+tokens cant have illegal chars
+if i do this i can't have \n \t
