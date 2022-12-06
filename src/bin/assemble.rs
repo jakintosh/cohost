@@ -1,9 +1,9 @@
 use cohost::assembler::{
-    library::{Context, Library},
-    parsing::from_text,
+    parsing::parse_text,
+    representation::{Context, Library, Module},
 };
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fs::read_to_string, path::PathBuf};
 
 const HELP: &str = "
 assemble v1 by @jakintosh
@@ -84,13 +84,16 @@ fn main() -> Result<(), String> {
         format!("{}", e)
     })?;
 
-    let assembly = std::fs::read_to_string(source).expect("couldn't read source");
-    let module = from_text(&assembly)?;
-    println!("Parsed Module:\n\n{}", module);
-    let library = Library::new();
-    let mut context = Context::new(&library);
-    context.parse_module(module)?;
-    let byteco = context.assemble()?;
+    let assembly_text = match read_to_string(source) {
+        Ok(asm) => asm,
+        Err(e) => return Err(format!("Couldn't read source: {}", e)),
+    };
+    let text_tokens = parse_text(&assembly_text)?;
+    let module = Module::from_text_tokens(text_tokens)?;
+    println!("Module:\n\n{}", module);
+    // let library = Library::new();
+    // let context = Context::new(&library, module)?;
+    // let byteco = context.assemble()?;
 
     Ok(())
 

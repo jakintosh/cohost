@@ -118,8 +118,8 @@ fn check_dmas(cpu: &mut core::CPU) {
         let has_request = core::DMA::REQ_BIT & dma.status_reg != 0;
         if has_request {
             // process request
-            let payload_range = dma.address as usize..(dma.address + dma.buffer_len) as usize;
-            let payload = &cpu.memory[payload_range];
+            // let payload_range = dma.address as usize..(dma.address + dma.buffer_len) as usize;
+            // let payload = &cpu.memory[payload_range];
         }
     }
 }
