@@ -1,7 +1,6 @@
-use std::fmt::Display;
-
 use crate::assembler::representation::{Macro, Routine};
 use crate::assembler::tokens::{Rune, TextToken};
+use std::fmt::Display;
 
 pub struct Module {
     pub macros: Vec<Macro>,
@@ -11,8 +10,8 @@ impl Module {
     pub fn from_text_tokens(tokens: Vec<TextToken>) -> Result<Module, String> {
         let mut macros = Vec::new();
         let mut routines = Vec::new();
-        let mut tokens = tokens.into_iter();
-        while let Some(token) = tokens.next() {
+        let mut text_tokens = tokens.into_iter();
+        while let Some(token) = text_tokens.next() {
             match token {
                 TextToken::Rune(rune) => match rune {
                     Rune::OpenRoutine | Rune::OpenExportedRoutine => {
@@ -20,11 +19,11 @@ impl Module {
                             Rune::OpenExportedRoutine => true,
                             _ => false,
                         };
-                        let routine = Routine::from_text_tokens(exported, &mut tokens)?;
+                        let routine = Routine::from_text_tokens(exported, &mut text_tokens)?;
                         routines.push(routine);
                     }
                     Rune::OpenMacro => {
-                        let mac = Macro::from_text_tokens(&mut tokens)?;
+                        let mac = Macro::from_text_tokens(&mut text_tokens)?;
                         macros.push(mac);
                     }
                     _ => return Err(format!("Invalid rune '{}' in module", rune)),

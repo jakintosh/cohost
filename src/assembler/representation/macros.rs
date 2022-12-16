@@ -1,6 +1,5 @@
-use std::fmt::Display;
-
 use crate::assembler::tokens::{Command, Marker, NumberLiteral, Rune, SourceToken, TextToken};
+use std::fmt::Display;
 
 pub struct Macro {
     pub name: String,
@@ -14,7 +13,6 @@ impl Macro {
             return Err("First token of macro must be string literal".into());
         };
 
-        let mut params_legal = true;
         let mut tokens = Vec::new();
         while let Some(text_token) = text_tokens.next() {
             let source_token = match text_token {

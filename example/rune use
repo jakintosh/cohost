@@ -27,6 +27,7 @@ $ address of local routine
 ` unused
 , unused
 . unused
+
 - valid label character
 ? valid label character
 
@@ -38,14 +39,3 @@ label tokens
 
 other
 { }
-
-
-
-I type something
-spaces are important
-i will look at inner stuff
-chunk everything by whitespace
-look at start rune for info
-look at end rune for closers
-tokens cant have illegal chars
-if i do this i can't have \n \t

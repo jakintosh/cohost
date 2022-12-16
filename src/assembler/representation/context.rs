@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
+use crate::assembler::representation::{ByteCo, ByteCoIL, Library, Macro, Module, Routine};
 use crate::assembler::tokens::SourceToken;
-
-use super::{ByteCo, ByteCoIL, Library, Macro, Module, Routine};
+use std::collections::HashMap;
 
 pub struct Context<'a> {
     macros: HashMap<String, Macro>,
@@ -20,15 +18,15 @@ impl<'a> Context<'a> {
         };
 
         for m in module.macros {
-            context.register_macro(m);
+            context.register_macro(m)?;
         }
         for r in module.routines {
-            context.register_routine(r);
+            context.register_routine(r)?;
         }
 
         Ok(context)
     }
-    pub fn assemble(self) -> Result<ByteCo, String> {
+    pub fn export(self) -> Result<ByteCo, String> {
         let Context {
             macros,
             routines,
@@ -65,7 +63,8 @@ impl<'a> Context<'a> {
         // match token {
         //     SourceToken::Comment { string } => vec.push(ByteCoIL::Comment(string)),
         //     SourceToken::NumberLiteral { literal } => vec.push(ByteCoIL::Assembled(literal.into())),
-        //     SourceToken::Instruction { code } => vec.push(ByteCoIL::Assembled(vec![code])),
+        //     SourceToken::Instruction { opcode } => vec.push(ByteCoIL::Assembled(vec![opcode])),
+        //     SourceToken::ParameterDef { name } =>
         //     SourceToken::RoutineCallLocal { label } => vec.push(ByteCoIL::RoutineCallLocal(label)),
         //     SourceToken::RoutineCallExported { label } => {
         //         vec.push(ByteCoIL::RoutineCallExported(label))

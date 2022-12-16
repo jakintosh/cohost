@@ -25,8 +25,8 @@ impl Display for SourceToken {
                 format!("Instruction( {} )", crate::core::opcode_to_str(*opcode))
             }
             SourceToken::NumberLiteral { literal } => format!("Literal( {} )", literal),
-            SourceToken::ParameterDef { name } => format!("Parameter( {} )", name),
-            SourceToken::ParameterUse { label } => format!("Use Parameter( {:?} )", label),
+            SourceToken::ParameterDef { name } => format!("Define Parameter( {} )", name),
+            SourceToken::ParameterUse { label } => format!("Pass Parameter( {:?} )", label),
             SourceToken::RoutineCallLocal { label } => format!("Local Call `{:?}`", label),
             SourceToken::RoutineCallExported { label } => format!("Exported Call `{:?}`", label),
             SourceToken::RoutineAddressLocal { label } => {
