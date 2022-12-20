@@ -50,11 +50,11 @@ impl Routine {
                     }
                     opcode => SourceToken::Instruction { opcode },
                 },
+                TextToken::Import(_) => return Err("Invalid import in routine def".into()),
+                TextToken::Path(_) => return Err("Invalid path in routine def".into()),
                 TextToken::StringLiteral(_) => return Err("Dangling string literal".into()),
                 TextToken::NumberLiteral(_) => return Err("Dangling number literal".into()),
-                TextToken::Import(_) => return Err("Invalid import".into()),
-                TextToken::NewLine => continue,
-                TextToken::Tab(_) => continue,
+                TextToken::NewLine | TextToken::Tab(_) => continue,
             };
             tokens.push(source_token);
         }

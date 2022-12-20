@@ -44,7 +44,7 @@ impl Macro {
                         }
                         continue;
                     }
-                    _ => return Err("Invalid rune inside routine definition".into()),
+                    _ => return Err("Invalid rune inside macro definition".into()),
                 },
                 TextToken::Label(Command { marker, label }) => match marker {
                     Marker::CallRoutine => SourceToken::RoutineCallLocal { label },
@@ -73,11 +73,11 @@ impl Macro {
                     }
                     opcode => SourceToken::Instruction { opcode },
                 },
+                TextToken::Import(_) => return Err("Invalid import in macro def".into()),
+                TextToken::Path(_) => return Err("Invalid path in macro def".into()),
                 TextToken::StringLiteral(_) => return Err("Dangling string literal".into()),
                 TextToken::NumberLiteral(_) => return Err("Dangling number literal".into()),
-                TextToken::Import(_) => return Err("Invalid import".into()),
-                TextToken::NewLine => continue,
-                TextToken::Tab(_) => continue,
+                TextToken::NewLine | TextToken::Tab(_) => continue,
             };
             tokens.push(source_token);
         }

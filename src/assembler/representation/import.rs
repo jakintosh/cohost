@@ -1,4 +1,4 @@
-use crate::assembler::tokens::{self, Rune, TextToken, IMPORT_PATH_SEPARATOR};
+use crate::assembler::tokens::{self, Path, Rune, TextToken};
 use std::fmt::Display;
 
 pub enum SymbolType {
@@ -7,33 +7,29 @@ pub enum SymbolType {
 }
 pub struct Import {
     pub name: String,
-    pub path: Vec<String>,
+    pub path: Path,
     pub symbol: SymbolType,
 }
 impl Import {
     pub fn from_text_tokens(
         text_tokens: &mut dyn Iterator<Item = TextToken>,
     ) -> Result<Vec<Import>, String> {
-        let Some(TextToken::StringLiteral(root)) = text_tokens.next() else {
-            return Err("First token of import must be string literal".into());
+        let Some(TextToken::Path(path)) = text_tokens.next() else {
+            return Err("First token of import must be a path".into());
         };
-        let root: Vec<String> = root
-            .split(IMPORT_PATH_SEPARATOR)
-            .map(|s| s.into())
-            .collect();
 
         let mut imports = Vec::new();
         while let Some(token) = text_tokens.next() {
             match token {
                 TextToken::Import(import) => match import {
                     tokens::Import::Macro { identifier, name } => {
-                        let mut path = root.clone();
+                        let mut path = path.clone();
                         path.push(identifier);
                         let symbol = SymbolType::Macro;
                         imports.push(Import { name, path, symbol });
                     }
                     tokens::Import::Routine { identifier, name } => {
-                        let mut path = root.clone();
+                        let mut path = path.clone();
                         path.push(identifier);
                         let symbol = SymbolType::Routine;
                         imports.push(Import { name, path, symbol });
@@ -58,10 +54,6 @@ impl Display for Import {
             SymbolType::Macro => write!(f, " - type: Macro\n")?,
             SymbolType::Routine => write!(f, " - type: Routine\n")?,
         };
-        write!(f, " - path:")?;
-        for name in &self.path {
-            write!(f, " {}", name)?;
-        }
-        write!(f, "\n")
+        write!(f, " - path: {}\n", self.path)
     }
 }

@@ -1,54 +1,53 @@
 ( imports )
-+ co.stack
-	%stash8=stash %unstash8=unstash
-	%swap8=swap %unswap8=unswap
-	%hold8=hold %unhold8=unhold
-	%decrement8=decrement
++ .co.stack
+	%stash8 %unstash8 %swap8 %unswap8 %hold8 %unhold8 %decrement8
 ;
-( + co.loop
-	%return-is-zero8=exit?
-	%while %end-while
-	%do-macro-while
-; )
-
-( base macros )
-(
-	% stash CDR8 DRD ;
-	% unstash CRD8 DRR ;
-	% swap CDS8 DRD ;
-	% unswap CSD8 DRS ;
-	% hold CDH8 DRD ;
-	% unhold CHD8 ;
-	% decrement LIT8 1 SUB8 ;
-)
-
-( loop macros )
-% exit? LIT8 0 CRD8 EQU8 ;
-% dupe-loop-counter DPR8 ;
-% while [ id ] #{id} ~exit? &{id}-end JCR8 ;
-% end-while [ id ] >decrement-return &{id} JPR8 #{id}-end DRR ;
-% do-macro-while [ macro ]
-	~dupe-loop-counter
-	~while '{macro}
-		~{macro}
-	~end-while '{macro}
++ .co.loop
+	%while %end-while %do-macro-while
 ;
 
 ( routines )
-: decrement-return ( n --r-- n-1 ) 
-	~unstash
-	~decrement
-	~stash
+: decrement-return ( n --r-- n-1 )
+	~unstash8
+	~decrement8
+	~stash8
 ;
-: reverse ( 1b, 2b .. nb, bn --d-- nb .. 2b, 1b )
-	~decrement ~stash
+: reverse ( a, b, c, .., n --d-- .., c, b, a )
+	~decrement8 ~stash8
 	~while 'reverse
-		~hold
-		~do-macro-while 'swap
-		~unhold
-		~do-macro-while 'unswap
+		~hold8
+		~do-macro-while 'swap8
+		~unhold8
+		~do-macro-while 'unswap8
 	~end-while 'reverse
 ;
+
+( ------------------------------------------------------------------- )
+
+( base macros )
+(
+	% stash8 CDR8 DRD ;
+	% unstash8 CRD8 DRR ;
+	% swap8 CDS8 DRD ;
+	% unswap8 CSD8 DRS ;
+	% hold8 CDH8 DRD ;
+	% unhold8 CHD8 ;
+	% decrement8 LIT8 1 SUB8 ;
+)
+
+( loop macros )
+(
+	% exit? LIT8 0 CRD8 EQU8 ;
+	% dupe-loop-counter DPR8 ;
+	% while [ id ] #{id} ~exit? &{id}-end JCR8 ;
+	% end-while [ id ] >decrement-return &{id} JPR8 #{id}-end DRR ;
+	% do-macro-while [ macro ]
+		~dupe-loop-counter
+		~while '{macro}
+			~{macro}
+		~end-while '{macro}
+	;
+)
 
 ( example of ROM assembly )
 ( |0000 #program )

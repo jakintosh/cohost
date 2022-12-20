@@ -1,4 +1,4 @@
-use crate::assembler::tokens::{validate_string, Command, Import, Rune};
+use crate::assembler::tokens::{validate_string, Command, Import, Path, Rune};
 use crate::core::{opcode_to_str, str_to_opcode};
 use std::{fmt::Display, str::FromStr};
 
@@ -7,6 +7,7 @@ pub enum TextToken {
     Rune(Rune),
     Label(Command),
     Import(Import),
+    Path(Path),
     NumberLiteral(u64),
     Assembly(u8),
     StringLiteral(String),
@@ -27,11 +28,6 @@ impl FromStr for TextToken {
             return Ok(Self::Label(label));
         }
 
-        // try parse import
-        if let Ok(import) = s.parse() {
-            return Ok(Self::Import(import));
-        }
-
         // try parse number
         if let Some(number) = parse_number(s) {
             return Ok(Self::NumberLiteral(number));
@@ -40,6 +36,16 @@ impl FromStr for TextToken {
         // try parse instruction
         if let Some(opcode) = str_to_opcode(s) {
             return Ok(Self::Assembly(opcode));
+        }
+
+        // try parse path
+        if let Ok(path) = s.parse() {
+            return Ok(Self::Path(path));
+        }
+
+        // try parse import
+        if let Ok(import) = s.parse() {
+            return Ok(Self::Import(import));
         }
 
         // validate remaining string
@@ -58,6 +64,7 @@ impl Display for TextToken {
             Self::Rune(rune) => write!(f, "Rune({})", rune),
             Self::Label(label) => write!(f, "Label({:?})", label),
             Self::Import(import) => write!(f, "Import({})", import),
+            Self::Path(path) => write!(f, "Path({})", path),
             Self::NumberLiteral(number) => write!(f, "Number({})", number),
             Self::Assembly(opcode) => write!(f, "Assembly({})", opcode_to_str(*opcode)),
             Self::StringLiteral(string) => write!(f, "String Literal({})", string),
