@@ -1,4 +1,5 @@
 mod command;
+mod import;
 mod label;
 mod number_literal;
 mod rune;
@@ -6,6 +7,7 @@ mod source_token;
 mod text_tokens;
 
 pub use command::Command;
+pub use import::Import;
 pub use label::Label;
 pub use label::Marker;
 pub use number_literal::NumberLiteral;
@@ -15,9 +17,10 @@ pub use text_tokens::TextToken;
 
 pub const COMMENT_OPEN: char = '(';
 pub const COMMENT_CLOSE: char = ')';
+pub const INCLUDE_DEF: char = '+';
 pub const ROUTINE_DEF: char = ':';
 pub const EXPORTED_ROUTINE_DEF: char = '^';
-pub const ROUTINE_CLOSE: char = ';';
+pub const DEFINITION_CLOSE: char = ';';
 pub const ROUTINE_CALL: char = '>';
 pub const EXPORTED_ROUTINE_CALL: char = '<';
 pub const ROUTINE_ADDRESS: char = '$';
@@ -34,12 +37,13 @@ pub const ANCHOR_ADDR_ABS: char = '*';
 pub const ANCHOR_ADDR_REL: char = '&';
 
 pub fn validate_string(s: &str) -> Result<(), String> {
-    const RESERVED_CHARS: [char; 19] = [
+    const RESERVED_CHARS: [char; 20] = [
         COMMENT_OPEN,
         COMMENT_CLOSE,
+        INCLUDE_DEF,
         ROUTINE_DEF,
         EXPORTED_ROUTINE_DEF,
-        ROUTINE_CLOSE,
+        DEFINITION_CLOSE,
         ROUTINE_CALL,
         EXPORTED_ROUTINE_CALL,
         ROUTINE_ADDRESS,

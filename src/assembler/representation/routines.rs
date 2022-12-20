@@ -1,6 +1,5 @@
-use std::fmt::Display;
-
 use crate::assembler::tokens::{Command, Marker, NumberLiteral, Rune, SourceToken, TextToken};
+use std::fmt::Display;
 
 pub struct Routine {
     pub name: String,
@@ -21,7 +20,7 @@ impl Routine {
             let source_token = match text_token {
                 TextToken::Comment(string) => SourceToken::Comment { string },
                 TextToken::Rune(rune) => match rune {
-                    Rune::CloseRoutine => break,
+                    Rune::CloseDefinition => break,
                     _ => return Err("Invalid rune inside routine definition".into()),
                 },
                 TextToken::Label(Command { marker, label }) => match marker {
@@ -53,6 +52,7 @@ impl Routine {
                 },
                 TextToken::StringLiteral(_) => return Err("Dangling string literal".into()),
                 TextToken::NumberLiteral(_) => return Err("Dangling number literal".into()),
+                TextToken::Import(_) => return Err("Invalid import".into()),
                 TextToken::NewLine => continue,
                 TextToken::Tab(_) => continue,
             };

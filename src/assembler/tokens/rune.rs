@@ -1,16 +1,17 @@
 use super::{
-    COMMENT_CLOSE, COMMENT_OPEN, EXPORTED_ROUTINE_DEF, MACRO_DEF, MACRO_PARAM_CLOSE,
-    MACRO_PARAM_OPEN, ROUTINE_CLOSE, ROUTINE_DEF,
+    COMMENT_CLOSE, COMMENT_OPEN, DEFINITION_CLOSE, EXPORTED_ROUTINE_DEF, INCLUDE_DEF, MACRO_DEF,
+    MACRO_PARAM_CLOSE, MACRO_PARAM_OPEN, ROUTINE_DEF,
 };
 use std::{fmt::Display, str::FromStr};
 
 pub enum Rune {
     OpenComment,
     CloseComment,
+    OpenInclude,
     OpenRoutine,
     OpenExportedRoutine,
     OpenMacro,
-    CloseRoutine,
+    CloseDefinition,
     OpenParameters,
     CloseParameters,
 }
@@ -29,10 +30,11 @@ impl FromStr for Rune {
         match chars[0] {
             COMMENT_OPEN => Ok(Self::OpenComment),
             COMMENT_CLOSE => Ok(Self::CloseComment),
+            INCLUDE_DEF => Ok(Self::OpenInclude),
             ROUTINE_DEF => Ok(Self::OpenRoutine),
             EXPORTED_ROUTINE_DEF => Ok(Self::OpenExportedRoutine),
             MACRO_DEF => Ok(Self::OpenMacro),
-            ROUTINE_CLOSE => Ok(Self::CloseRoutine),
+            DEFINITION_CLOSE => Ok(Self::CloseDefinition),
             MACRO_PARAM_OPEN => Ok(Self::OpenParameters),
             MACRO_PARAM_CLOSE => Ok(Self::CloseParameters),
             _ => Err(format!("'{}' is not a recognized rune", s)),
@@ -44,10 +46,11 @@ impl Display for Rune {
         match self {
             Rune::OpenComment => write!(f, "OpenComment"),
             Rune::CloseComment => write!(f, "CloseComment"),
+            Rune::OpenInclude => write!(f, "OpenInclude"),
             Rune::OpenRoutine => write!(f, "OpenRoutine"),
             Rune::OpenExportedRoutine => write!(f, "OpenExportedRoutine"),
             Rune::OpenMacro => write!(f, "OpenMacro"),
-            Rune::CloseRoutine => write!(f, "CloseRoutine"),
+            Rune::CloseDefinition => write!(f, "CloseRoutine"),
             Rune::OpenParameters => write!(f, "OpenParameters"),
             Rune::CloseParameters => write!(f, "CloseParameters"),
         }

@@ -18,7 +18,7 @@ impl Macro {
             let source_token = match text_token {
                 TextToken::Comment(string) => SourceToken::Comment { string },
                 TextToken::Rune(rune) => match rune {
-                    Rune::CloseRoutine => break,
+                    Rune::CloseDefinition => break,
                     Rune::OpenParameters => {
                         while let Some(token) = text_tokens.next() {
                             match token {
@@ -75,6 +75,7 @@ impl Macro {
                 },
                 TextToken::StringLiteral(_) => return Err("Dangling string literal".into()),
                 TextToken::NumberLiteral(_) => return Err("Dangling number literal".into()),
+                TextToken::Import(_) => return Err("Invalid import".into()),
                 TextToken::NewLine => continue,
                 TextToken::Tab(_) => continue,
             };

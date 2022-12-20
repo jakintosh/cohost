@@ -1,4 +1,4 @@
-use crate::assembler::tokens::{validate_string, Command, Rune};
+use crate::assembler::tokens::{validate_string, Command, Import, Rune};
 use crate::core::{opcode_to_str, str_to_opcode};
 use std::{fmt::Display, str::FromStr};
 
@@ -6,6 +6,7 @@ pub enum TextToken {
     Comment(String),
     Rune(Rune),
     Label(Command),
+    Import(Import),
     NumberLiteral(u64),
     Assembly(u8),
     StringLiteral(String),
@@ -24,6 +25,11 @@ impl FromStr for TextToken {
         // try parse label
         if let Ok(label) = s.parse() {
             return Ok(Self::Label(label));
+        }
+
+        // try parse import
+        if let Ok(import) = s.parse() {
+            return Ok(Self::Import(import));
         }
 
         // try parse number
@@ -48,14 +54,15 @@ impl FromStr for TextToken {
 impl Display for TextToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TextToken::Comment(string) => write!(f, "Comment({})", string),
-            TextToken::Rune(rune) => write!(f, "Rune({})", rune),
-            TextToken::Label(label) => write!(f, "Label({:?})", label),
-            TextToken::NumberLiteral(number) => write!(f, "Number({})", number),
-            TextToken::Assembly(opcode) => write!(f, "Assembly({})", opcode_to_str(*opcode)),
-            TextToken::StringLiteral(string) => write!(f, "String Literal({})", string),
-            TextToken::NewLine => write!(f, "New Line"),
-            TextToken::Tab(count) => write!(f, "Tab({})", count),
+            Self::Comment(string) => write!(f, "Comment({})", string),
+            Self::Rune(rune) => write!(f, "Rune({})", rune),
+            Self::Label(label) => write!(f, "Label({:?})", label),
+            Self::Import(import) => write!(f, "Import({})", import),
+            Self::NumberLiteral(number) => write!(f, "Number({})", number),
+            Self::Assembly(opcode) => write!(f, "Assembly({})", opcode_to_str(*opcode)),
+            Self::StringLiteral(string) => write!(f, "String Literal({})", string),
+            Self::NewLine => write!(f, "New Line"),
+            Self::Tab(count) => write!(f, "Tab({})", count),
         }
     }
 }
