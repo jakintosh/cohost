@@ -1,5 +1,5 @@
 use super::{
-    COMMENT_CLOSE, COMMENT_OPEN, DEFINITION_CLOSE, EXPORTED_ROUTINE_DEF, INCLUDE_DEF, MACRO_DEF,
+    COMMENT_CLOSE, COMMENT_OPEN, DEFINITION_CLOSE, EXPORTED_ROUTINE_DEF, IMPORT_DEF, MACRO_DEF,
     MACRO_PARAM_CLOSE, MACRO_PARAM_OPEN, ROUTINE_DEF,
 };
 use std::{fmt::Display, str::FromStr};
@@ -7,7 +7,7 @@ use std::{fmt::Display, str::FromStr};
 pub enum Rune {
     OpenComment,
     CloseComment,
-    OpenInclude,
+    OpenImport,
     OpenRoutine,
     OpenExportedRoutine,
     OpenMacro,
@@ -30,7 +30,7 @@ impl FromStr for Rune {
         match chars[0] {
             COMMENT_OPEN => Ok(Self::OpenComment),
             COMMENT_CLOSE => Ok(Self::CloseComment),
-            INCLUDE_DEF => Ok(Self::OpenInclude),
+            IMPORT_DEF => Ok(Self::OpenImport),
             ROUTINE_DEF => Ok(Self::OpenRoutine),
             EXPORTED_ROUTINE_DEF => Ok(Self::OpenExportedRoutine),
             MACRO_DEF => Ok(Self::OpenMacro),
@@ -46,7 +46,7 @@ impl Display for Rune {
         match self {
             Rune::OpenComment => write!(f, "OpenComment"),
             Rune::CloseComment => write!(f, "CloseComment"),
-            Rune::OpenInclude => write!(f, "OpenInclude"),
+            Rune::OpenImport => write!(f, "OpenImport"),
             Rune::OpenRoutine => write!(f, "OpenRoutine"),
             Rune::OpenExportedRoutine => write!(f, "OpenExportedRoutine"),
             Rune::OpenMacro => write!(f, "OpenMacro"),

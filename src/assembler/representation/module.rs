@@ -16,7 +16,7 @@ impl Module {
         while let Some(token) = text_tokens.next() {
             match token {
                 TextToken::Rune(rune) => match rune {
-                    Rune::OpenInclude => {
+                    Rune::OpenImport => {
                         imports.append(&mut Import::from_text_tokens(&mut text_tokens)?);
                     }
                     Rune::OpenRoutine => {

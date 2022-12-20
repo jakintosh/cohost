@@ -1,14 +1,17 @@
 ( start comment
 ) end comment
++ start import
+% start macro
 : start local routine
 ^ start exported routine
-% start macro
-; end routine or macro
+; end definition
+. import path separator
+= import name assignment
 < call exported routine
 > call local routine
 $ address of local routine
 @ address of exported routine
-~ include macro
+~ use macro
 [ parameter list def open
 ] parameter list def close
 { parameter interp open
@@ -20,13 +23,10 @@ $ address of local routine
 | unused
 \ unused
 / unused
-= unused
-+ unused
 ! unused
 " unused
 ` unused
 , unused
-. unused
 
 - valid label character
 ? valid label character

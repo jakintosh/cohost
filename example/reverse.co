@@ -1,14 +1,11 @@
 ( imports )
-
-+ test.lib :test-routine %test-macro ;
-
-( + co.std.stack
++ co.stack
 	%stash8=stash %unstash8=unstash
 	%swap8=swap %unswap8=unswap
 	%hold8=hold %unhold8=unhold
 	%decrement8=decrement
-; )
-( + co.std.loop
+;
+( + co.loop
 	%return-is-zero8=exit?
 	%while %end-while
 	%do-macro-while
@@ -53,7 +50,7 @@
 	~end-while 'reverse
 ;
 
-( example of ROM aseembly )
+( example of ROM assembly )
 ( |0000 #program )
 (	LIT8 1 LIT8 2 LIT8 3 )	( input )
 (	DPD8 )					( count )

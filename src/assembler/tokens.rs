@@ -17,10 +17,12 @@ pub use text_tokens::TextToken;
 
 pub const COMMENT_OPEN: char = '(';
 pub const COMMENT_CLOSE: char = ')';
-pub const INCLUDE_DEF: char = '+';
+pub const IMPORT_DEF: char = '+';
 pub const ROUTINE_DEF: char = ':';
 pub const EXPORTED_ROUTINE_DEF: char = '^';
 pub const DEFINITION_CLOSE: char = ';';
+pub const IMPORT_PATH_SEPARATOR: char = '.';
+pub const IMPORT_NAME_ASSIGNMENT: char = '=';
 pub const ROUTINE_CALL: char = '>';
 pub const EXPORTED_ROUTINE_CALL: char = '<';
 pub const ROUTINE_ADDRESS: char = '$';
@@ -37,13 +39,15 @@ pub const ANCHOR_ADDR_ABS: char = '*';
 pub const ANCHOR_ADDR_REL: char = '&';
 
 pub fn validate_string(s: &str) -> Result<(), String> {
-    const RESERVED_CHARS: [char; 20] = [
+    const RESERVED_CHARS: [char; 22] = [
         COMMENT_OPEN,
         COMMENT_CLOSE,
-        INCLUDE_DEF,
+        IMPORT_DEF,
         ROUTINE_DEF,
         EXPORTED_ROUTINE_DEF,
         DEFINITION_CLOSE,
+        IMPORT_PATH_SEPARATOR,
+        IMPORT_NAME_ASSIGNMENT,
         ROUTINE_CALL,
         EXPORTED_ROUTINE_CALL,
         ROUTINE_ADDRESS,
